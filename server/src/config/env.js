@@ -153,7 +153,7 @@ const validateEnv = () => {
     }
 
     if (!env.smtpUser) {
-      errors.push("EMAIL_USER is required for Gmail SMTP. Add it to server/.env.");
+      errors.push("EMAIL_USER is required for SMTP delivery. Add it to server/.env.");
     }
 
     if (!env.smtpPass) {

@@ -34,14 +34,14 @@ const getEmailFailureMessage = (error) => {
     error?.responseCode === 535 ||
     /Username and Password not accepted|Invalid login|BadCredentials/i.test(message)
   ) {
-    return "Gmail rejected EMAIL_USER or EMAIL_PASS. Use a Gmail 16-character App Password, not your normal Gmail password.";
+    return "The SMTP provider rejected EMAIL_USER or EMAIL_PASS. Check the SMTP login and SMTP key/password.";
   }
 
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ESOCKET|EACCES/i.test(`${error?.code || ""} ${message}`)) {
-    return "Could not reach Gmail SMTP. Check your internet connection, firewall/antivirus settings, and SMTP_HOST/SMTP_PORT.";
+    return "Could not reach the SMTP provider. Check SMTP_HOST, SMTP_PORT, and the hosting provider's outbound-port restrictions.";
   }
 
-  return "Email delivery failed. Check Gmail SMTP configuration in server/.env.";
+  return "Email delivery failed. Check the SMTP configuration.";
 };
 
 const escapeHtml = (value) =>
@@ -101,15 +101,20 @@ const verifyEmailTransport = async () => {
 
   try {
     await mailer.verify();
-    logger.info("Gmail SMTP verified successfully", {
+    logger.info("SMTP transport verified successfully", {
       host: env.smtpHost,
       port: env.smtpPort,
       user: maskEmail(env.smtpUser),
     });
   } catch (error) {
-    logger.error("Gmail SMTP verification failed", toSafeEmailError(error));
-    throw new Error(getEmailFailureMessage(error));
+    logger.warn("SMTP transport verification failed; the API will start, but email delivery remains unavailable", {
+      ...toSafeEmailError(error),
+      guidance: getEmailFailureMessage(error),
+    });
+    return false;
   }
+
+  return true;
 };
 
 const sendVerificationEmail = async ({ to, name, code }) => {
