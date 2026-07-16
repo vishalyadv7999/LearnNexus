@@ -1,0 +1,20 @@
+{
+  "name": "learnnexus",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm --workspace server run dev\" \"npm --workspace client run dev\"",
+    "build": "npm --workspace client run build",
+    "seed": "npm --workspace server run seed",
+    "import:playlists": "npm --workspace server run import:playlists",
+    "test": "npm --workspace server test",
+    "check": "npm --workspace server run check && npm --workspace client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

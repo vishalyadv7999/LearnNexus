@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+client/node_modules
+server/node_modules
+client/dist
+*.log
+server/.env
+client/.env
+backups
+coverage
+npm-debug.log*

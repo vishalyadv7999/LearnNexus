@@ -1,0 +1,139 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 2 6 23;
+  --color-surface: 15 23 42;
+  --color-surface-strong: 17 24 39;
+  --color-ink: 248 250 252;
+  --color-muted: 148 163 184;
+  --color-line: 255 255 255;
+  --color-primary: 34 211 238;
+  --color-primary-soft: 30 41 59;
+  --color-accent: 217 70 239;
+  --color-accent-soft: 76 29 149;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  background-color: #020617;
+  background-image:
+    radial-gradient(circle at 18% 8%, rgba(124, 58, 237, 0.25), transparent 28%),
+    radial-gradient(circle at 82% 4%, rgba(34, 211, 238, 0.18), transparent 25%),
+    linear-gradient(180deg, #050816 0%, #020617 100%);
+  background-size: 100% 100%;
+  color: rgb(var(--color-ink));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .surface {
+    @apply border border-white/10 bg-white/[0.055] shadow-soft backdrop-blur-xl;
+  }
+
+  .panel {
+    @apply surface rounded-[1.5rem] p-5 sm:p-6;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-6;
+  }
+
+  .dashboard-shell {
+    @apply relative mx-auto w-full max-w-[92rem] px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-4 py-3 text-sm font-black text-white shadow-[0_14px_34px_rgba(34,211,238,0.2)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-ink transition hover:border-primary/30 hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .field {
+    @apply w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-semibold text-ink outline-none transition placeholder:text-muted/70 focus:border-primary/70 focus:ring-2 focus:ring-primary/20;
+    color-scheme: dark;
+  }
+
+  .subtle-label {
+    @apply text-xs font-bold uppercase tracking-[0.16em] text-muted;
+  }
+}
+
+.summary-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lesson-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.futuristic-grid {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168, 85, 247, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.95), transparent 78%);
+}
+
+.border-line {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.bg-line {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.bg-white {
+  background-color: rgba(255, 255, 255, 0.065);
+}
+
+.bg-white\/70,
+.bg-white\/80 {
+  background-color: rgba(255, 255, 255, 0.055);
+}
+
+.text-amber-700 {
+  color: rgb(253 230 138);
+}
+
+select.field option,
+select.field optgroup {
+  background-color: #020617;
+  color: #f8fafc;
+}

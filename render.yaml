@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: learnnexus-api
+    env: docker
+    dockerfilePath: ./Dockerfile.server
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AUTO_RESUME_PLAYLIST_IMPORTS
+        value: "false"
+
+  - type: web
+    name: learnnexus-web
+    env: static
+    buildCommand: npm ci && npm --workspace client run build
+    staticPublishPath: ./client/dist
+    autoDeploy: false
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
