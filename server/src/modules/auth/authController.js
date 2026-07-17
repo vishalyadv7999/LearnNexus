@@ -30,7 +30,7 @@ const env = require("../../config/env");
 const logger = require("../../utils/logger");
 const crypto = require("crypto");
 
-const VERIFICATION_CODE_TTL_MINUTES = 10;
+const VERIFICATION_CODE_TTL_MINUTES = 30;
 const MAX_LOGIN_ATTEMPTS = 8;
 const LOGIN_LOCK_MINUTES = 15;
 

@@ -132,14 +132,14 @@ const sendVerificationEmail = async ({ to, name, code }) => {
       from: env.mailFrom,
       to,
       subject: "Verify your LearnNexus account",
-      text: `Hi ${name},\n\nYour LearnNexus verification code is ${code}. It expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`,
+      text: `Hi ${name},\n\nYour LearnNexus verification code is ${code}. It expires in 30 minutes.\n\nIf you did not request this, you can ignore this email.`,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
           <h2>Verify your LearnNexus account</h2>
           <p>Hi ${escapeHtml(name)},</p>
           <p>Use this verification code to finish creating your account:</p>
           <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${code}</p>
-          <p>This code expires in 10 minutes.</p>
+          <p>This code expires in 30 minutes.</p>
         </div>
       `,
     });
