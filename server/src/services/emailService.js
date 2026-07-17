@@ -1,9 +1,21 @@
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 const env = require("../config/env");
 const ApiError = require("../utils/apiError");
 const logger = require("../utils/logger");
 
 let transporter = null;
+let gmailAccessToken = null;
+let gmailAccessTokenExpiresAt = 0;
+
+const hasGmailApiConfig = () =>
+  env.nodeEnv !== "test" &&
+  Boolean(
+    env.gmailClientId &&
+      env.gmailClientSecret &&
+      env.gmailRefreshToken &&
+      env.gmailSenderEmail
+  );
 
 const hasSmtpConfig = () =>
   env.nodeEnv !== "test" && Boolean(env.smtpHost && env.smtpUser && env.smtpPass);
@@ -77,6 +89,113 @@ const getTransporter = () => {
 
 const canUseLocalDelivery = () => env.nodeEnv !== "production";
 
+const encodeBase64Url = (value) =>
+  Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const getGmailAccessToken = async () => {
+  if (gmailAccessToken && Date.now() < gmailAccessTokenExpiresAt) {
+    return gmailAccessToken;
+  }
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.gmailClientId,
+      client_secret: env.gmailClientSecret,
+      refresh_token: env.gmailRefreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+  const data = await response.json();
+
+  if (!response.ok || !data.access_token) {
+    const error = new Error(
+      `Gmail OAuth token request failed (${response.status}): ${data.error_description || data.error || "unknown error"}`
+    );
+    error.code = data.error || "GMAIL_OAUTH_ERROR";
+    throw error;
+  }
+
+  gmailAccessToken = data.access_token;
+  gmailAccessTokenExpiresAt =
+    Date.now() + Math.max(60, Number(data.expires_in || 3600) - 60) * 1000;
+  return gmailAccessToken;
+};
+
+const buildRawEmail = ({ to, subject, text, html }) => {
+  const boundary = `learnnexus_${crypto.randomBytes(12).toString("hex")}`;
+  return [
+    `From: ${env.mailFrom}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary=\"${boundary}\"`,
+    "",
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    text,
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    html,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+};
+
+const sendWithGmailApi = async (message) => {
+  const accessToken = await getGmailAccessToken();
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ raw: encodeBase64Url(buildRawEmail(message)) }),
+    }
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(
+      `Gmail API send failed (${response.status}): ${data.error?.message || "unknown error"}`
+    );
+    error.code = data.error?.status || "GMAIL_API_ERROR";
+    throw error;
+  }
+
+  logger.info("Gmail API message accepted", {
+    messageId: data.id,
+    to: maskEmail(message.to),
+  });
+  return data;
+};
+
+const sendEmailMessage = async (message) => {
+  if (hasGmailApiConfig()) {
+    await sendWithGmailApi(message);
+    return { delivered: true, mode: "gmail-api" };
+  }
+
+  const mailer = getTransporter();
+  if (!mailer) {
+    return null;
+  }
+
+  await mailer.sendMail({ from: env.mailFrom, ...message });
+  return { delivered: true, mode: "smtp" };
+};
+
 const handleMissingMailer = (label) => {
   if (canUseLocalDelivery()) {
     return { delivered: false, mode: "console" };
@@ -87,6 +206,22 @@ const handleMissingMailer = (label) => {
 };
 
 const verifyEmailTransport = async () => {
+  if (hasGmailApiConfig()) {
+    try {
+      await getGmailAccessToken();
+      logger.info("Gmail API authorization verified successfully", {
+        sender: maskEmail(env.gmailSenderEmail),
+      });
+      return true;
+    } catch (error) {
+      logger.warn("Gmail API authorization failed; the API will start, but email delivery remains unavailable", {
+        ...toSafeEmailError(error),
+        guidance: "Check GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and Gmail API enablement.",
+      });
+      return false;
+    }
+  }
+
   const mailer = getTransporter();
 
   if (!mailer) {
@@ -118,9 +253,7 @@ const verifyEmailTransport = async () => {
 };
 
 const sendVerificationEmail = async ({ to, name, code }) => {
-  const mailer = getTransporter();
-
-  if (!mailer) {
+  if (!hasGmailApiConfig() && !getTransporter()) {
     if (canUseLocalDelivery()) {
       logger.info(`[LearnNexus verification] ${to}: ${code}`);
     }
@@ -128,8 +261,7 @@ const sendVerificationEmail = async ({ to, name, code }) => {
   }
 
   try {
-    await mailer.sendMail({
-      from: env.mailFrom,
+    const delivery = await sendEmailMessage({
       to,
       subject: "Verify your LearnNexus account",
       text: `Hi ${name},\n\nYour LearnNexus verification code is ${code}. It expires in 30 minutes.\n\nIf you did not request this, you can ignore this email.`,
@@ -143,18 +275,16 @@ const sendVerificationEmail = async ({ to, name, code }) => {
         </div>
       `,
     });
+    return delivery;
   } catch (error) {
     logger.error("Verification email failed", toSafeEmailError(error));
     throw new ApiError(502, getEmailFailureMessage(error));
   }
 
-  return { delivered: true, mode: "smtp" };
 };
 
 const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
-  const mailer = getTransporter();
-
-  if (!mailer) {
+  if (!hasGmailApiConfig() && !getTransporter()) {
     if (canUseLocalDelivery()) {
       logger.info(`[LearnNexus password reset] ${to}: ${resetUrl}`);
     }
@@ -162,8 +292,7 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
   }
 
   try {
-    await mailer.sendMail({
-      from: env.mailFrom,
+    const delivery = await sendEmailMessage({
       to,
       subject: "Reset your LearnNexus password",
       text: `Hi ${name},\n\nUse this secure link to reset your LearnNexus password:\n${resetUrl}\n\nIt expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`,
@@ -177,12 +306,12 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
         </div>
       `,
     });
+    return delivery;
   } catch (error) {
     logger.error("Password reset email failed", toSafeEmailError(error));
     throw new ApiError(502, getEmailFailureMessage(error));
   }
 
-  return { delivered: true, mode: "smtp" };
 };
 
 module.exports = {

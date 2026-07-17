@@ -31,9 +31,14 @@ const isLocalMongoUri = (value = "") =>
 
 const emailUser = readFirstEnv("EMAIL_USER", "SMTP_USER");
 const emailPass = normalizeEmailPassword(readFirstEnv("EMAIL_PASS", "SMTP_PASS"));
+const gmailSenderEmail = readEnv("GMAIL_SENDER_EMAIL");
 const emailFrom =
   readFirstEnv("EMAIL_FROM", "MAIL_FROM") ||
-  (emailUser ? `LearnNexus <${emailUser}>` : "LearnNexus <no-reply@learnnexus.app>");
+  (gmailSenderEmail
+    ? `LearnNexus <${gmailSenderEmail}>`
+    : emailUser
+      ? `LearnNexus <${emailUser}>`
+      : "LearnNexus <no-reply@learnnexus.app>");
 
 const env = {
   port: Number(process.env.PORT) || 5001,
@@ -72,6 +77,10 @@ const env = {
   smtpUser: emailUser,
   smtpPass: emailPass,
   mailFrom: emailFrom,
+  gmailClientId: readEnv("GMAIL_CLIENT_ID"),
+  gmailClientSecret: readEnv("GMAIL_CLIENT_SECRET"),
+  gmailRefreshToken: readEnv("GMAIL_REFRESH_TOKEN"),
+  gmailSenderEmail,
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug"),
   trustProxy: process.env.TRUST_PROXY === "true",
   redisUrl: process.env.REDIS_URL || "",
@@ -148,20 +157,22 @@ const validateEnv = () => {
   }
 
   if (env.nodeEnv !== "test") {
-    if (!env.smtpHost) {
-      errors.push("SMTP_HOST is required for verification and password reset emails.");
+    const gmailValues = [
+      env.gmailClientId,
+      env.gmailClientSecret,
+      env.gmailRefreshToken,
+      env.gmailSenderEmail,
+    ];
+    const hasGmailApi = gmailValues.every(Boolean);
+    const hasPartialGmailApi = gmailValues.some(Boolean) && !hasGmailApi;
+    const hasSmtp = Boolean(env.smtpHost && env.smtpUser && env.smtpPass);
+
+    if (hasPartialGmailApi) {
+      errors.push("Gmail API configuration is incomplete. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and GMAIL_SENDER_EMAIL.");
     }
 
-    if (!env.smtpUser) {
-      errors.push("EMAIL_USER is required for SMTP delivery. Add it to server/.env.");
-    }
-
-    if (!env.smtpPass) {
-      errors.push("EMAIL_PASS is required. Use a Gmail 16-character App Password, not your normal Gmail password.");
-    }
-
-    if (!env.mailFrom) {
-      errors.push("EMAIL_FROM is required.");
+    if (!hasGmailApi && !hasSmtp) {
+      errors.push("Email delivery requires complete Gmail API credentials or SMTP_HOST, EMAIL_USER, and EMAIL_PASS.");
     }
 
     if (env.autoResumePlaylistImports && !env.youtubeApiKey) {
