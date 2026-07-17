@@ -168,7 +168,7 @@ const register = async (req, res, next) => {
 
     res.status(201).json({
       message:
-        delivery.mode === "smtp"
+        delivery.delivered
           ? "Verification code sent. Check your email to finish signup."
           : "Verification code generated. Check the backend terminal to finish signup.",
       requiresVerification: true,
@@ -243,7 +243,7 @@ const resendVerification = async (req, res, next) => {
 
     res.json({
       message:
-        delivery.mode === "smtp"
+        delivery.delivered
           ? "A new verification code was sent to your email."
           : "A new verification code was generated. Check the backend terminal.",
       deliveryMode: delivery.mode,
